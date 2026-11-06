@@ -1,656 +1,426 @@
-![EnginEx.js :The Best Embedded Server-side JavaScript You Will Ever Use!](http://i.imgur.com/agsSZY5.png)
+# EnginEx AI-Native 7.0
+
+[![EnginEx CI](https://github.com/GoldenObsidianLLC/EnginEx/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/GoldenObsidianLLC/EnginEx/actions/workflows/ci.yml)
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/License-GPL--2.0--or--later-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-22%20%7C%2024%20%7C%2026-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+
+
+EnginEx is a dependency-free Node.js HTML template engine with a restricted expression interpreter, nested template composition, bounded rendering, machine-readable grammar, JSON Schema-based data contracts, structured diagnostics, optional AI providers, and an optional Model Context Protocol (MCP) adapter.
+
+> **Security position:** EnginEx parses a restricted expression language. The synchronous compiler uses `Function` only to compile statements it generates from validated AST nodes; raw template source is never concatenated into executable code. Treat the compiler as security-critical. Legacy `<?njs ?>` JavaScript execution has been removed in 7.0.0. This does not make arbitrary static HTML safe. Keep helpers capability-limited.
+
+## Table of contents
+
+- [Highlights](#highlights)
+- [Requirements](#requirements)
+- [Install / run](#install--run)
+- [Compiled rendering and prepared data](#compiled-rendering-and-prepared-data)
+- [Incremental fragments](#incremental-fragments)
+- [Optional accelerators and transport adapters](#optional-accelerators-and-transport-adapters)
+- [EnginEx 7.0 runtime contracts](#enginex-70-runtime-contracts)
+- [AI workflow](#ai-workflow)
+- [OpenAI provider](#openai-provider)
+- [MCP integration](#mcp-integration)
+- [Tests, evaluations, and benchmarks](#tests-evals-benchmarks)
+- [Documentation and governance](#documentation-and-governance)
+- [Security, licensing, and attribution](#security-licensing-and-attribution)
+
+## Highlights
+
+- Zero mandatory runtime dependencies.
+- Existing `{{ ... }}` interpolation, conditions, loops, aliases, filters, partials and layout inheritance.
+- HTML escaping by default and a branded `safeHtml()` escape hatch for trusted/sanitized markup.
+- Asynchronous helpers, asynchronous partial loading, async-iterator streaming, writable streams.
+- Root path confinement and canonical path checks.
+- Bounded AST cache, concurrent cold-load coalescing, compiled synchronous renderers, compile-time specialization for built-in date/number/currency formatters with static options, reusable immutable prepared-data snapshots, and a validated precompiled AST-manifest build pipeline.
+- Machine-readable capability manifest and template grammar.
+- Source analysis and diagnostics: helper use, data references, partials, layouts, blocks, active HTML / contextual output warnings.
+- JSON Schema subset for runtime data contracts; unsupported schema keywords fail explicitly rather than being silently ignored.
+- AI workflow interface for generation, synthetic sample data, preview, explanation, repair, optimization, fixture comparison and explicitly gated publication.
+- Optional OpenAI Responses API provider using Structured Outputs.
+- Optional MCP tools, resources and prompts; no file-write or publish tool is exposed over MCP.
+- PHP/Twig render-only benchmark, local HTTP smoke benchmark with p50/p95/p99 latency, an external HTTP client for comparing staging endpoints behind equivalent reverse proxies/PHP-FPM, raw run artifacts, output hashes, profile command, and separate interpreter/compiled/prepared-data modes.
+- Incremental fragments with dependency paths and scalable XOR/OR bitsets; a structurally shared reactive model can report changed paths without requiring a full deep diff on every update.
+- Canonical `RenderRequest` v1 normalization, named resource profiles, opt-in render telemetry, context-sensitive output diagnostics, and package-integrity checks.
+- Optional WebAssembly SIMD scanner/escape backend, SharedArrayBuffer worker scanner, browser WebGPU/WGSL scanner, WebSocket live-preview server adapter, WebTransport client, and WebRTC DataChannel wrapper. These are optional experiments, not assumed speedups.
 
-If you like this project and you would like to see it continued
-[***donate Now on Kickstarter.com***](https://www.kickstarter.com/projects/1143508444/enginexjs "Donate now on Kickstarter.com") or share us with your friends.
+## Requirements
 
-<iframe width="420" height="315" src="https://www.youtube.com/embed/-xrHmSIcvgI" frameborder="0" allowfullscreen></iframe>
----------------------------
-### TABLE OF CONTENTS
- * About Justin D Harlan
- * About EnginEx.js
-	 * What is EnginEx.js?
-	 * EnginEx.js Features
-	 * Introduction to EnginEx.js
-	 * Requirements of EnginEx.js
-	 * Installation of EnginEx.js
-	 * EnginEx.js Basic API
-	 * Basic Usage of EnginEx.js in a HTML File
- * A Simple Example of a Website
-	 * Configuring The Server
-	 * Putting together the HTML Files
- * Conclusion
- * License
+Use the latest patched release in a supported Node.js line. The package sets `node >=22.23.4` as its baseline; run CI on the currently patched Node 22, 24, and 26 lines before production deployment. The source can be syntax-checked on older compatible Node 22 builds, but do not use an unpatched runtime in production.
+
+## Install / run
 
-### Author: Justin D Harlan
+This is a source package without mandatory dependencies:
 
-There are many title you can give me, title such as designer, developer, programmer, coder, and even software engineer. Those title are fine and all but the reality is that they are just titles to me, or name with narrow perspective of the passion it take to push forwards beyond preconceive boundaries. In truth like so many others that believe as I do being a programmer may not be enough, but being a problem solver that is something more than just a simple coder. I am a Problem solver and the programming is only one of my tools. In the last decade I have used graphic design, web design, video editing, 3D modeling, After Affects, Photoshop, ActionScript 2.0/3.0, HTML, CSS, JavaScript, PHP, jQuery, MYSQL, WordPress, XML, ffmpeg, video brodcasting, networking, NOSQL, JSON, Node.js and many more things to push the limits and produce a solution. All these thing are tools to get a favorable result. I am passionate about what I do is an understatement because I because I seek to be the best version of me. For the record how do I see myself when I think of what the best version of me is, well that is simple. The best version of me is building and/or fixing what ever I can.
+```bash
+npm test
+npm run check
+npm run evals
+node examples/demo.js
+npm run bench:http
+```
 
-### What is EnginEx.js?
-***EnginEx.js*** ( MIT license ) is a high performance template engine framework, written in ECMAScript which is popularly known to most as JavaScript. ***EnginEx.js*** is created and maintained by ***Justin Duane Harlan***
+For a deployment-like comparison of already-running staging routes behind equivalent reverse proxies (including PHP-FPM), provide at least two URLs that return the same deterministic HTML fixture:
 
-### EnginEx.js Features
+```bash
+ENGINEX_HTTP_URL=https://eng.example.test/bench \
+PHP_HTTP_URL=https://php.example.test/bench \
+TWIG_HTTP_URL=https://twig.example.test/bench \
+npm run bench:http:external
+```
 
-- Full support for ECMAScript 5.1 ([ECMA-262](http://www.ecma-international.org/publications/standards/Ecma-262.htm "ECMAScript® Language Specification")) 
-- Uses [***Node.js***](http://nodejs.org/ "Node.js") full JavaScript language and it's API inside ***EnginEx.js*** Embedded server-side JavaScript.
-- Block Statements inside ***EnginEx.js*** Embedded server-side JavaScript actively  interacts with HTML (very much like PHP).
-- The include method not only includes the files, it also allows for ***EnginEx.js*** Embedded server-side JavaScript to interact with the scope that the include method was are called in, from within the included file.
-- As I mentioned before, ***EnginEx.js*** allows for the uses [***Node.js***](http://nodejs.org/ "Node.js") full JavaScript language and it's API. So just to be clear yes you can use `process` and `require` along with many other tools that come along with [***Node.js***](http://nodejs.org/ "Node.js").
+This reports throughput, p50/p95/p99 latency, response size, and output hashes in `bench/http-external-comparison.json`. Use staging—not production—and ensure the routes exercise equivalent data access, caching, compression, and response semantics.
 
-### Introduction to EnginEx.js
-There are so many people that is raving about logic-less templates. Well ***EnginEx.js*** is not about that. I not saying you cant produces logic-less templates with my software, I'm just saying that my software is about embedding sever side JavaScript directly in to the HTML code to give developers a better option and a easier work flow method than writing server-side files and HTML files. With the ability to create actual class documents With the ability to modify the HTML code before the prepossessing stage it will give you the power to produce website with the capabilities more closer to PHP development style than any other view engine before. 
+To render a template:
 
-***EnginEx.js*** is a view engine that  mirrors the way PHP's embeds server-side script into HTML code. The main benefits to using ***EnginEx.js*** is the ability to load the run included files from a file. When using the include function to load files you can create template files and [***Node.js***](http://nodejs.org/ "Node.js")  server-side script class files. ***EnginEx.js*** allows for the embedded [***Node.js***](http://nodejs.org/ "Node.js") Script to be modified and the page to be refreshed, without having restarting [***Node.js***](http://nodejs.org/ "Node.js").
+```js
+const engine = require('./index');
 
-The purpose of the development of ***EnginEx.js*** is to increase developers work flow with less complex applications and allowing the learning curve to sharply decrease for my fellow PHP developers. [***Node.js***](http://nodejs.org/ "Node.js") is note difficult to learn but using [***Node.js***](http://nodejs.org/ "Node.js") is more of the equivalent a PHP developer creating and configure the server to handle every module and component of Apache MYSQL without PHP. To cut to the chase [***Node.js***](http://nodejs.org/ "Node.js") And Express is the Apache where MongoDB is the MYSQL and ***EnginEx.js*** is the PHP in WAMP/LAMP configurations. So if you understand how important is PHP to WAMP/LAMP configurations then you can see the importance of ***EnginEx.js***.
+const html = await engine('product-list.html', {
+  views: './examples/views',
+  locals: {
+    siteName: 'Northstar Store',
+    products: [
+      { name: 'Notebook', price: 8.50 },
+      { name: 'Pen', price: 2.25 }
+    ]
+  }
+});
+```
 
-If you are familiar with PHP then you will appreciate ***EnginEx.js*** because of one of its for most focus points is to make PHP developers learning curve for [***Node.js***](http://nodejs.org/ "Node.js") less complex, being that I am very fond of PHP and can't help but to miss some of the benefits of its language. So to resolve an the yearning of missing some of the strong benefits of PHP I wrote ***EnginEx.js*** to merge the gaps in [***Node.js***](http://nodejs.org/ "Node.js") development for PHP developers.
+The original Express-compatible callback API is retained. EnginEx 7.0.0 rejects `<?njs ... ?>` blocks and no longer ships the legacy JavaScript renderer. The former `allowUnsafeCode` option and `engine.unsafe()` entry point return `ERR_ENGINEX_UNSAFE_API`.
 
-**Requirements of EnginEx.js**
+## Compiled rendering and prepared data
 
-[***Node***](http://nodejs.org/ "Node.js") 0.8.0 +
+For repeated renders, load once and reuse the compiled renderer. This avoids repeated template source reads and expression interpretation:
 
-[***Express***](http://expressjs.com/ "Express.js") 4.0.x +
+```js
+const engine = require('./index');
+const template = await engine.load('products/index.html', { views: './views' });
+const html = template.render({ user: { name: 'Ada' }, products: [] });
+```
 
->`> npm install express`
+The safe compiled renderer is synchronous and requires synchronous helpers. If any helper returns a Promise, it throws `ERR_ENGINEX_ASYNC_HELPER`; use the existing async renderer (`await engine('page.html', options)`) or `template.renderAsync(data)` when you need async helpers.
 
-**Installation of EnginEx.js**
+For repeated rendering with the exact same data snapshot, validate/copy it once and reuse the opaque prepared token:
 
-You can install ***EnginEx.js*** NPM
+```js
+const prepared = template.prepareData(data);
+const html = template.renderPrepared(prepared);
+```
 
-NPM download Command
->`> npm install enginex`
-**EnginEx.js Basic API**
-EnginEx.js has some built-in  functions and objects that you may find very useful
+Prepared snapshots support primitives, arrays, and plain objects; `Map` and `Set` are rejected so the snapshot can remain immutable. Changes to the original input after `prepareData()` do not change the prepared snapshot. Prepare new data when the source data changes.
 
-**include( path)  #method**
+### Full-response caching
 
-- Argument:
-	- Type: String Literals or String properties of the ``window`` object.
-- Description: This method excepts an file path to insert in to the document. The include method makes it is possible to insert the text/code/markup of one file into the current document before the server executes it what makes the include method in EnginEx.js is that it keeps all of the include file's embedded server-side JavaScript in scope same scope just like in PHP making it more flexible to design patterns, and yes you can also make HTML in to embedded server-side JavaScript class files.
-- ***! Warning !***: The only two values that this method can except is an Sting literal with no concatenations and the ``window`` object with no concatenations . This object is not editable because if the ``window`` object was edited it can make the include method unstable when using it with the include method.
+When a page is public and its output changes infrequently, caching the rendered HTML can save more work than optimizing the renderer. EnginEx provides an explicit, bounded string-only TTL/LRU cache; it does not guess which pages are safe to share.
 
-Example Usages
+```js
+const pageCache = engine.createResponseCache({
+  maxEntries: 200,
+  maxBytes: 8 * 1024 * 1024,
+  ttlMs: 15_000
+});
 
-	// Including CSS files into the document.
-	<styles><?njs include('directory/file.css'); ?></styles>
+const key = `catalog:v3:${locale}:${categoryId}:${sortOrder}`;
+let html = pageCache.get(key);
+if (html === undefined) {
+  html = template.renderPrepared(preparedCatalogData);
+  pageCache.set(key, html);
+}
+res.type('html').send(html);
+```
 
-	// Including JavaScript files into the document.
-	<script> var a='text'; <?njs include('directory/file.js'); ?></script>
+The key must include all output-affecting dimensions, such as tenant, locale, authorization variant, sorting, and source-data revision. Do not use a shared public cache key for personalized HTML. Explicitly invalidate keys when data or templates change, and choose TTL based on an acceptable stale-data window.
 
-	// Including HTML files into the document.
-	<div><?njs include('directory/file.html'); ?></div>
+### Build a reusable AST manifest
 
-	// Including text files into the document.
-	<div><?njs include('directory/file.txt'); ?><div>
+Compile and validate the template tree during build:
 
-	// Including HTML files into the document with the window object.
-	// The include method can only accept String Literals or
-    // values from the "window" object and can not have any
-    // type of concatenation expression
-	<div><?njs include(window.some_property); ?></div>
+```bash
+node bin/enginex.js build --root ./views --out ./dist/templates.json --entry index.html
+```
 
-**echo( String )  #method**
+Load the generated manifest once at process startup:
 
-- Argument:
-	- Type: String.
-- Description: This method excepts a text, code, and/or markup to insert in to the html file. The echo method makes it is possible to insert the text/code/markup from a string into the current document before the server executes it.
+```js
+const template = await engine.loadPrecompiled('./dist/templates.json');
+const html = template.render(data);
+```
 
-Example Usage:
+The manifest contains a JSON representation of validated template ASTs and the resolved dependency graph. Loading it generates reusable renderer functions once; rendering then needs neither the original template files nor per-request template parsing. **This is a validated AST manifest, not portable V8 bytecode.** Use artifacts produced by your trusted build process and version them together with EnginEx. Manifest mode currently supports compiled synchronous rendering; source-backed `renderAsync()` and streaming APIs are not available in this mode.
 
-	//Inserting CSS code into the document.
-	<styles><?njs echo('body{color:black;}'); ?></styles>
-
-	//Inserting JavaScript code into the document.
-	<script> var a='text'; <?njs echo('var b=a;'); ?></script>
-
-	//Inserting HTML code into the document.
-	<div><?njs echo('<p>Text Goes Here</p>'); ?></div>
-
-	//Inserting text into the document.
-	<div><?njs echo('Text Goes Here'); ?><div>
-		
-**window #object**
-
-- Description: The ``window`` object holds the options value when [***Express.js***](http://expressjs.com/ "Express.js") render method pass options to EnginEx.js.
-- ***! Warning !***: The ``window`` object is frozen before the HTML document is complied. This object is not editable, because if the ``window`` object was edited it can make the include method unstable when using it with the include method, So you should repeat after me, ***"I [state your name] would not, could not, and should not attempt to modify the window object on the HTML side of EnginEx.js, and if I could, I doom my application to being possibly unstable and unreliably and I do so at my own risk."***
-
-Example Usage:
-
-	// Example of Express.js render method passing options to EnginEx.js.
-	router.get('/',function(req,res){
-	var options ={property: 'values'};
-		res.render( 'index.html', options);
-	});
-
-	// Example of using the options pasted EnginEx.js in the template.
-	// Inserting HTML code into the document.
-	<div><p><?njs echo(window.property); ?></p></div>
-	// results in "<div><p>values</p></div>"
-
-**globals #object**
-
-
-- Description: The `globals` object get and set properties or methods set by the user in EnginEx.js.
-
-Example Usage:
-
-	// Example using the "globals" object in EnginEx.js htm;.
-	globals['property']='value';
-	var a = globals.property==='value'; //a=true
-	// Example of using the options pasted EnginEx.js in the template.
-	globals['method']=function(a){ var b=a+1; return b;}
-	var c = globals.method(1)===2; //c=true
-
-###Basic Usage of EnginEx.js in a HTML File
-When using EnginEx.js inside the HTML file you can enter and escape the [***Node.js***](http://nodejs.org/ "Node.js") server-side JavaScript by the opening tag `<?njs` and closing tag `?>`. 
-
-	<?njs /*Node.js embedded server-side JavaScript goes in here…*/ ?>
-The code above is an basic example of how to use the server-side JavaScript tag in your HTML code you can see that it is very much like PHP's server-side script tags.
-
-	<?php /*embedded server-side script for PHP goes in here…*/ ?>
-The reason for this is because I wanted PHP developers to be comfortable with its syntax and also because the developers that will be using ***EnginEx.js*** will have an rare ability to use ***EnginEx.js***'s embedded server-side JavaScript much like a PHP developer would use php.
-##A Simple Example of a Website
-This Section is an example how to make an simple website with a ***EnginEx.js*** as your view engine. What you will also learn in this section is that ***EnginEx.js*** goes farther beyond the limits of your average view engine to open up a new world of possibilities.
-###Configuring The Server
-When configuring ***EnginEx.js*** , it is important that you remember that ***EnginEx.js*** was developed to work with the Express module and is also Express-compliant. Below is an outline of the web directory and it's files.
-
-The **folders** are in a **bold** font style and the *files* are in a *italic* font style.
->
-- /**root directory (http://localhost:3000)**
-	- /**node_modules**
-	- /**public**
-		- /**css**
-			- /*styles.css*
-		- /**img**
-		- /**js**
-			- /*jquery-1.11.1.min.js*
-		- /**views**
-			- /**partials**
-				- /*contents.html*
-				- /*footer.html*
-				- /*head.html*
-				- /*header.html*
-			- /**pages**
-				- *about.html*
-				- *contact.html*
-				- *home.html*
-				- *services.html*
-			- /*index.html*
-	- /*server.js*
-
-After you have your directories setup, then you should make sure you install [***Express.js***](http://expressjs.com/ "Express.js") and ***EnginEx.js*** before we begin if you already haven't. If you haven't install them yet, here are the install commands.
-
-	npm install express	
-and
-
-	npm install enginex
-
-### server.js
-The basic set for the [***Node.js***](http://nodejs.org/ "Node.js") server is very straight forward and it's as simple as adding a plugin, serious it should have to get any easier you are actually going to just set up a server. So lets begin, most of the information you need to know is documented in the file as comments being that I expect the reader to be familiar with [***Node.js***](http://nodejs.org/ "Node.js") and [***Express.js***](http://expressjs.com/ "Express.js"). This example website will literal only need two module to start of with, Which you should already have installed.
-
-    //server.js
-	// Require EnginEx.js
-	var enginex			= require('enginex');
-	// Require Express.js
-    var express			= require('express');
-    var app				= express();
-    var router			= express.Router();
-	// Setting the port value in Express.js
-    app.set('port', process.env.PORT || 3000);
-	// Initiate the server with Express.js
-    var server = app.listen(app.get('port'),function(){
-
-		// Assigning the server's host address 
-		// to the host varialble.
-    	var host = server.address().address;
-
-		// Assigning the server's port number 
-		// to the host varialble.
-    	var port = server.address().port;
-
-		// Registering the engine in Express.js
-		// to EnginEx.js.
-    	app.engine('html', enginex.__engine);
-    	// !!You may also use!! "app.engine('html', engine.__express);".
-
-		// Setting the default engine extension to use when omitted.
-    	app.set('view engine', 'html');
-
-		// Setting the directories for EnginEx.js, where the view files are stored (HTML files).
-    	app.set('views',__dirname + '/public/views');
-
-		// Setting the static content for EnginEx.js from the "public" directory
-    	router.use(express.static(__dirname + '/public'));
-
-		// Stating in Node.js Shell that the Server is loaded and ready.
-    	console.log('Magic happens at http://%s:%s', host, port);
-		
-		// Below are router object returned from for the "express.Router()" method.
-		// all the router render the index.html file first as its entry point
-		// in to the website.
-
-		// This router points to the url http://localhost:3000 or http://localhost:3000/
-		// which is the home page.
-    	router.get('/',function(req,res){
-
-			// The first argument of the res.render method is the path to the index.html file.
-			// The second argument of the res.render method is an object that is sent to 
-			// EnginEx.js. The second argument can be accessed in the html files in the 
-			// "window" object.
-
-			// The second argument's node property is an object with 3 properties, of course
-			// course you can set this object to anything even to "{}" or add properties to
-			// pass along to the "window" object in your template through EnginEx.js.
-			// but once you are coding in your template the "window" object is frozen and
-			// you can not modify add or remove from it.
-			//    1). title: Is the page title.
-			//    2). page: Is the path to the page's content template
-			//    3). server: Holds the server information.
-    		res.render('index.html',{node:{title:'Home',page:'pages/home.html',server:server}});
-    	});
-
-		// This router points to the url http://localhost:3000/home
-		// which is also the home page.
-    	router.get('/home',function(req,res){
-    		res.render('index.html',{node:{title:'Home',page:'pages/home.html',server:server}});
-    	});
-
-		// This router points to the url http://localhost:3000/about
-    	router.get('/about',function(req,res){
-    		res.render('index.html',{node:{title:'About',page:'pages/about.html',server:server}});
-    	});
-
-		// This router points to the url http://localhost:3000/services
-    	router.get('/services',function(req,res){
-    		res.render('index.html',{node:{title:'Contact',page:'pages/services.html',server:server}});
-    	});
-
-		// This router points to the url http://localhost:3000/contact
-    	router.get('/contact',function(req,res){
-    		res.render('index.html',{node:{title:'Contact',page:'pages/contact.html',server:server}});
-    	});
-		// Calls the router object before loading a page.
-    	app.use(router);
-    });
-
-###Putting together the HTML Files
-This example website is based on a [***RESTfull Architecture***](http://en.wikipedia.org/wiki/Representational_state_transfer "Representational State Transfer") style of web design. The purpose of the example is show the simplicity and the possibilities of using ***EnginEx.js***. While displaying its ease of using ***EnginEx.js*** to develop website PHP developers should see how easy it would be to translate most websites from PHP to Node.js using  ***EnginEx.js***.
-**index.html**
-
-Below is the index.html file
-
-	<?njs //index.html ?>
-	<?njs 
-		// Including the header.html
-		// The header.html contains the upper contents
-		// of the html file including the head element.
-		// The include method can only accept String Literals or
-		// values from the "window" object and can not have any
-		// type of concatenation expression. *SEE "include" in the
-		// EnginEx.js Basic API section of the EnginEx.js Documentation
-		// or in the read me file.
-		include('partials/header.html'); 
-	?>
-	<div id="page-content">
-		<div id="admin_menu">
-			<ul class="menu_items">
-			<?njs 
-				// Loops have been an major part of the computer revolution
-				// and it would abslutely be a shame to stop now. Even when you 
-				// exit out of the server-side JavaScript it will still loop the
-				// html code along with the server-side JavaScript, but wait
-				// there is more! This feature also applies to not only for 
-				// loops but with all statements with a block statment.
-			?>
-			<?njs for(var i=0; i<10;i++){ ?>
-				<li><div id="menu_item<?njs echo(i); ?>" options-pageID="" options-page="" class='menu_item'>menu item #<?njs echo(i); ?></div></li>
-				<?njs 
-					// With EnginEx.js it allows you to use the full ability
-					// of Node.js such as the require method. Yes thats right,
-					// how amazing is that? You can require methods directly
-					// from your html file.
-					require('../../public/js/test.js').test(i);
-				}; ?>
-			</ul>
-		</div>
-		<?njs 
-			// Including the content.html
-			// The content.html contains the relative page content
-			// of the html file in the body.
-		?>
-		<div id="admin_page">
-			<?njs include('partials/content.html'); ?>
-		</div>
-	</div>
-	<?njs 
-		// Including the footer.html
-		// The footer.html contains the footer content
-		// of the html file at the bottom of the page.
-		include('partials/footer.html'); 
-	?>
-
--------------------------------------------------
-
-**header.html**
-
-	<?njs //header.html ?>
-	<!DOCTYPE html>
-	<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
-	<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
-	<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
-	<!--[if (gte IE 9)|!(IE)]><html lang="en"><![endif]-->
-	<?njs 
-		// Including the head.html
-		// The head.html contains the head element an it's contents.
-	?>
-	<?njs include("partials/head.html"); ?>
-	<body>
-		<div id="header_bar"></div>	
-		<header>
-			<div class="common_width">			
-				<ul id="header_nav">
-					<li><a href="http://localhost:3000/page/home">Home</a></li>
-					<li><a href="http://localhost:3000/page/about">About</a></li>
-					<li><a href="http://localhost:3000/page/services">Services</a></li>
-					<li><a href="http://localhost:3000/page/contact">Contact</a></li>
-				</ul>
-			</div>
-		</header>
-
--------------------------------------------------
-
-**head.html**
-
-	<?njs //head.html ?>
-	<head>
-		<meta charset="utf-8">
-		<title>Example EnginEx.js Website By Justin Duane Harlan</title>
-		<meta name="description" content="Example">
-		<meta name="author" content="Justin Duane Harlan">
-		<meta http-equiv="content-type" content="text/html; charset=UTF8">
-		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-		<link rel="stylesheet" href="http://localhost:3000/css/styles.css">
-		<script src="http://localhost:3000/js/jquery-1.11.1.min.js"></script>
-	</head>
-
--------------------------------------------------
-
-**content.html**
-
-	<?njs //content.html ?>
-	<div id="admin-content">
-		<div id="admin-content-head">
-			<h1 class="title"><?njs echo(window.node.title); ?></h1>
-		</div>
-		<?njs if(true){ ?>
-			<div id="admin-content-body">
-				<?njs include(window.node.page); ?>
-			</div>
-		<?njs } ?>
-		<hr/>
-		<div id="admin-content-foot">			
-			<?njs echo(window.node.title); ?>
-		</div>
-	</div>
-
--------------------------------------------------
-
-**footer.html**
-
-	<?njs //footer.html ?>
-			<footer>
-				<div class="common_width">
-					<div id="copyright">
-						<p>&#169; Copyright, All Rights Reserved.</p>
-					</div>
-					<ul id="footer_nav">
-	    				<li><a href="http://localhost:3000/page/home">Home</a></li>
-	    				<li><a href="http://localhost:3000/page/about">About</a></li>
-	    				<li><a href="http://localhost:3000/page/services">Services</a></li>
-	    				<li><a href="http://localhost:3000/page/contact">Contact</a></li>
-					</ul>
-				</div>
-			</footer>
-		</body>
-	</html>
-
--------------------------------------------------
-
-**home.html**
-
-	<?njs //home.html ?>
-	<div id="home" class='page home'>
-		<p>Home page contents goes here...</p>
-	</div>
-
--------------------------------------------------
-
-**about.html**
-
-	<?njs //about.html ?>
-	<div id="about" class='page about'>
-		<p>About page contents goes here...</p>
-	</div>
-
--------------------------------------------------
-
-**services.html**
-
-	<?njs //services.html ?>
-	<div id="services" class='page services'>
-		<p>Services page contents goes here...</p>
-	</div>
-
--------------------------------------------------
-
-**contact.html**
-
-	<div id="contact" class='page contact'>
-		<p>Contact page contents goes here...</p>
-	</div>
-
--------------------------------------------------
-
-**styles.css**
-
-	html {
-		/* $rembase = 10px */
-	    font-size: 62.5%
-	}
-	body{
-		/*
-		$fontbase = 16px
-		$line-height-base = 26px
-		*/
-		font-size: 16px; /* fallback */
-		font-size: 1.6rem;
-		line-height: 1.625; /* $line-height-base ÷ $fontbase */
-	}
-	h1,
-	h2 {
-		font-size: 26px; /* fallback */
-		font-size: 2.6rem;
-		line-height: 1; /* $line-height-base ÷ 26 */
-	}
-	
-	h3,
-	h4 {
-		font-size: 18px; /* fallback */
-		font-size: 1.8rem;
-		line-height: 1.444; /* $line-height-base ÷ 18 */
-	}
-	ul {	
-		margin:0;
-	}
-	html, body{
-		margin: 0;
-		background-color: #333;
-	}
-	/*body*/
-	/*header*/
-	#header_bar {
-		height: 5px;
-		width: 100%;
-		background-color: #808080;
-		box-shadow: 0px 118px 256px 64px #ddd;	
-		-webkit-box-shadow: 0px 118px 256px 64px #ddd;
-		-moz-box-shadow: 0px 118px 256px 64px #ddd;
-	}
-	header {
-		width: 100%;
-		height: 50px;
-		background-color: #ccc;
-	}
-	#header_nav {
-		float: right;
-		font-size: 1em;
-		width: auto;
-		text-align:center;
-		margin-right: 80px;
-	}
-	#header_nav li {
-		float: left;
-		list-style: none;
-		display:inline-block;
-		padding: 0 10px;
-		height: 45px;
-	}
-	#header_nav li a{
-		color: #fff;
-		line-height: 45px;
-		text-decoration: none;
-	}
-	/*content*/
-	#page-content{	
-		width: 100%;
-		height: 700px;
-	}
-	#menu{
-		float: left;
-		clear: none;
-		width: 200px;
-		height: 100%;
-		vertical-align: top;
-	}
-	#menu ul.menu_items{
-		list-style: none;
-	}
-	#menu ul.menu_items li>div.menu_item{
-		color:white;
-	}
-	/* Admin Page Content area */
-	#page{
-		clear: none;
-		margin-left: 200px;
-		width: calc(100% - 200px);
-		height: 100%;
-		vertical-align: top;
-	}
-	#content{
-		width: 100%;
-		vertical-align: top;
-	}
-	#content-head{
-		width: 100%;
-	}
-	#content-head h1.title{
-		display: inline-block;
-		width: auto;
-	}
-	#content-body{
-		float: left;
-		background-color: #888;
-		width: 100%;
-	}
-	#content-body .template .section-row{
-		width: 100%;
-		clear: none;
-	}
-	#content-body .template .section-column{
-		display: inline-block;
-		clear: none;
-	}
-	#content-body .template{
-		clear: both;
-		width: 100%;
-	}
-	#content-body #home{
-		background-color: #fff;
-		width: 100%;
-	}
-	#content-body #header_row{
-		background-color: #555;
-		margin: 5px;
-		width: 100%;
-		height: 30px;
-	}
-	#content-foot{
-		clear: both;
-		width: 100%;
-	}
-	/*footer*/
-	footer {
-		display: inline-block;
-		background-color: #ccc;
-		width: 100%;
-	}
-	#copyright{
-		color: #4a4a4a;
-		font: 15px 'Georgia', serif;
-		display: inline-block;
-		left: 0;
-		margin: 30px 0 0 80px;
-		clear: none;
-	}
-	#footer_nav{
-		display: inline-block;
-		list-style: none;
-		float: right;
-		margin: 40px 80px 0 0;
-		clear: none;
-	}
-	#footer_nav li{
-		display: inline-block;
-	}
-	#footer_nav li:after {
-		padding: 0 10px;
-	    content: "|";
-	}
-	#footer_nav li:last-child:after {
-	    content: "";
-	}
-	#footer_nav a{
-		color: #4a4a4a;
-		font: 15px 'Arial',sans-serif;
-		text-decoration: none;
-	}
-
--------------------------------------------------
-
-## Conclusion
-
-Well as I hope you can see that here are thousands of possible applications that can be produced by EnginEx.js and EnginEx.js does not just a novelty but a real actual beneficial tool that can that can improve the development of any project that has an user interface.
-
-## License
-
-The MIT License (MIT)
-
-Copyright (c) 2015 Justin Duane Harlan
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+## Incremental fragments
+
+Mark dynamic regions with a fragment name and wrap them in a real DOM element using the same `data-enginex-fragment` id:
+
+```html
+<section data-enginex-fragment="notification">
+  {{#fragment "notification"}}{{ notifications.count }}{{/fragment}}
+</section>
+```
+
+`const session = template.createIncrementalSession()`; the first `session.render(data)` returns a full render, and later renders can return fragment patches when tracked dependencies change. For custom helper calls, mark helpers pure only when they are truly deterministic and side-effect-free; otherwise their fragment is invalidated conservatively. Server-rendered one-shot pages may not benefit much from incremental work.
+
+## Optional accelerators and transport adapters
+
+- `engine.createWasmSimdAccelerator()` loads the bundled Wasm SIMD ASCII scanner/escaper. It declines non-ASCII inputs so the normal JavaScript path preserves UTF-16 indexing. It is optional and must not be assumed faster; the bundled benchmark showed the native JavaScript escape routine faster for its 128 KiB test input.
+- `engine.createSharedWorkerPool()` scans large ASCII buffers with a SharedArrayBuffer/Atomics worker pool. This is a specialized scanning tool, not a general template-rendering worker pool. Small inputs should stay on the JavaScript path.
+- `engine.createWebGpuScanner()` uses a WGSL compute shader in compatible browser contexts; it returns `null` when WebGPU is unavailable. The Node.js validation environment did not have WebGPU.
+- `engine.attachWebSocketLivePreview()` attaches to a host-supplied `ws`-compatible server and supports authorized full previews plus incremental sessions. It does not bundle a WebSocket server.
+- `engine.connectWebTransport()` is a browser client for a host-implemented JSON-lines service. `engine.wrapRtcDataChannel()` wraps an already-negotiated WebRTC data channel; signaling and ICE are the host application's responsibility.
+
+Use adapters only when workload-specific measurements justify them. The historical 6.2 exploratory CLI benchmark is captured in [the updated comparison and benchmark report](docs/UPDATED-COMPARISON.md): five-run medians were 33,764 renders/sec for compiled EnginEx, 54,426 for prepared immutable data, and 202,406 for native PHP CLI with OPcache. These results are not EnginEx 7.0 measurements. Twig was not installed. The environment's Node.js is below the package's declared minimum and the shared host showed substantial run-to-run variance, so these measurements are not production qualification or universal performance claims. The 500-request HTTP smoke tests use Node's and PHP's built-in development servers, not PHP-FPM, and are documented separately.
+
+
+## EnginEx 7.0 runtime contracts
+
+### Named performance profiles
+
+Pass a profile when loading or rendering a template. Profiles define resource ceilings; explicit per-render limit values take precedence.
+
+```js
+const template = await engine.load('products.html', {
+  views: './views',
+  profile: 'high-throughput'
+});
+const html = template.render(data);
+```
+
+Available profiles are `standard-ssr`, `high-throughput`, `incremental-ui`, `streaming`, `ai-preview`, and `constrained-runtime`. They are guardrail presets, not claims that one profile is faster on every workload. Inspect values with `engine.getPerformanceProfiles()`.
+
+The shared-memory scanner exposes a bounded pending-job queue; overload rejects with `ERR_ENGINEX_BACKPRESSURE` rather than permitting unbounded task growth. In browser contexts, `SharedArrayBuffer` is reported usable only when the page is cross-origin isolated; otherwise use transferable buffers/message passing.
+
+### Canonical RenderRequest
+
+Integrations can normalize HTTP, CLI, AI-preview, or service inputs into a single request contract:
+
+```js
+const result = await engine.renderRequest({
+  template: 'products.html',
+  mode: 'sync',
+  profile: 'high-throughput',
+  data: { name: 'Ada' },
+  options: { root: './views' }
+});
+console.log(result.html, result.traceId);
+```
+
+`mode` is `sync`, `async`, or `stream`. The synchronous mode performs asynchronous loading once, then uses the synchronous compiled renderer. A stream result contains `stream`, an async iterable. Request paths must be normalized relative paths. `options.locals` is intentionally disallowed; use `data` so integrations share one contract.
+
+### Change-aware reactive model
+
+```js
+const template = await engine.load('dashboard.html', { views: './views' });
+const session = template.createIncrementalSession();
+const model = engine.createReactiveModel({ notifications: { count: 1 }, title: 'Home' });
+
+const initial = model.renderInto(session); // full HTML
+model.set('notifications.count', 2);
+const patchResult = model.renderInto(session); // only dependent fragments when tracked
+```
+
+The model uses immutable structural sharing and exposes an opaque prepared snapshot. Updates are explicit so mutations cannot silently bypass invalidation. For arbitrary external objects, continue using ordinary rendering and pass `changedPaths` only when the caller can accurately identify every affected path. If dependencies are uncertain, request a full render (`model.replace(data)` marks `*` dirty).
+
+### Telemetry and output-context analysis
+
+Telemetry is opt-in so the normal render path doesn't pay timing/callback overhead:
+
+```js
+const html = template.render(data, {
+  telemetry: true,
+  traceId: 'request-42',
+  onMetric(metric) { /* enqueue to the host's metrics pipeline */ }
+});
+console.log(engine.telemetryStats());
+```
+
+Callbacks are isolated: a telemetry exception never breaks rendering. Aggregate metrics avoid template/user identifiers as metric labels. `engine.analyzeOutputContexts(source)` reports suspicious interpolations in script/style, event-handler, CSS-style, URL-valued attributes, and raw-output contexts. The analyzer is deliberately conservative; set `strictOutputContexts: true` to reject those patterns during source validation/loading. It is not a full HTML parser or a sanitizer. Prefer `jsonScript()` for script-data serialization, `safeUrl()` plus an application allow-list for URL values, and avoid dynamic event-handler/CSS source altogether.
+
+### Reproducible build manifests
+
+`enginex build` now embeds SHA-256 hashes of source templates and compiler/grammar version metadata in the validated AST manifest. Builds are deterministic for the same source tree and options. The manifest is still an AST artifact—not precompiled V8 bytecode or a standalone generated render-function module. The trusted application process compiles reusable functions once at manifest load. Only load artifacts from a trusted build pipeline.
+
+## Machine-readable capabilities
+
+```js
+const engine = require('./index');
+console.log(engine.describe());
+console.log(engine.getGrammar());
+console.log(engine.getManifestSchema());
+```
+
+Useful APIs:
+
+- `engine.normalizeRenderRequest(request)` / `engine.renderRequest(request)` — normalize route, CLI, and tool inputs to the versioned RenderRequest contract. The JSON Schema is available at `schemas/render-request.schema.json` and through the `./render-request-schema` package export.
+- `engine.getAccelerationCapabilities()` / `engine.probeAccelerationCapabilities()` — distinguish API availability from probed WebGPU adapter features; capability detection alone is not a speed claim.
+- `engine.analyzeOutputContexts(source)` — conservative diagnostics for risky output contexts; it is not a full HTML parser or sanitizer.
+- `engine.analyzeSource(source, options)` / `engine.validateSource(source, options)` — local parsing and analysis, with no model call.
+- `engine.renderSource(source, options)` — render in memory while resolving partials/layouts from the configured root.
+- `engine.validateData(data, schema)` — validate data against the EnginEx-supported JSON Schema subset.
+- `engine.createAI({ provider, renderOptions, permissions })` — create an AI workflow facade.
+
+`describe()` is generated from the running package capabilities and helper registry, not from a separate marketing-only declaration.
+
+## AI workflow
+
+The core engine does not need an AI provider. Supply any adapter that implements:
+
+```js
+const provider = {
+  async generateStructuredOutput({ name, schema, system, input, signal }) {
+    // Call your model provider and return a plain object matching `schema`.
+  }
+};
+```
+
+Then use the AI facade:
+
+```js
+const engine = require('./index');
+const provider = engine.createOpenAIProvider({ model: process.env.ENGINEX_AI_MODEL });
+const ai = engine.createAI({
+  provider,
+  renderOptions: { views: './views', strictPaths: true }
+});
+
+const draft = await ai.generateTemplate({
+  description: 'A responsive product card with a name, price, and accessible action link.',
+  dataSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['product'],
+    properties: {
+      product: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'price'],
+        properties: {
+          name: { type: 'string' },
+          price: { type: 'number', minimum: 0 }
+        }
+      }
+    }
+  }
+});
+
+if (!draft.valid) {
+  console.error(draft.validation.diagnostics);
+} else {
+  const preview = await ai.previewTemplate({
+    source: draft.template,
+    sampleData: { product: { name: 'Notebook', price: 8.5 } },
+    renderOptions: { views: './views' }
+  });
+  console.log(preview.html);
+}
+```
+
+The provider receives the generation request and schema. Do not send confidential production records to a model unless your organization has explicitly approved that processing. Generated templates are drafts and are never saved automatically.
+
+### Available AI methods
+
+- `validateTemplate({ source, dataSchema?, sampleData?, helpers?, filename? })`
+- `previewTemplate({ source, sampleData?, dataSchema?, renderOptions? })`
+- `explainTemplate({ source, dataSchema?, purpose? })`
+- `generateTemplate({ description, dataSchema, layout?, conventions? })`
+- `generateSampleData({ dataSchema, purpose? })`
+- `repairTemplate({ source, ... })`
+- `optimizeTemplate({ source, testCases? })`
+- `verifyEquivalence({ original, proposed, testCases })`
+- `publishTemplate({ filename, source, actor? })`
+
+Optimization output is a proposal. The API reports exact-output comparisons only for test fixtures supplied by the caller. It does not claim unmeasured performance gains or universal semantic equivalence.
+
+### Data schema support
+
+The built-in validator supports a security-conscious subset of JSON Schema: `type`, `properties`, `required`, `additionalProperties`, `items`, `enum`, `const`, basic length/item/property/numeric limits, `uniqueItems`, `pattern` with anti-abuse checks, and a small set of standard formats. `$ref`, combinators, conditional schema keywords and unknown keywords are rejected. For a project needing complete Draft 2020-12 compliance, install a full validator such as Ajv at the application layer and validate before calling EnginEx. The generated template grammar itself is a separate machine-readable JSON resource.
+
+## OpenAI provider
+
+Install no OpenAI SDK to use the included adapter; it uses Node's built-in `fetch` and Responses API. Set `OPENAI_API_KEY` and pass an explicit model name:
+
+```js
+const provider = engine.createOpenAIProvider({
+  model: process.env.ENGINEX_AI_MODEL,
+  timeoutMs: 60000,
+  maxRetries: 1
+});
+```
+
+Model identifiers change over time, so the package intentionally does not hard-code a default model. See the [OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs). Provider use can incur costs and transmit prompt/schema/input content to that provider.
+
+## MCP integration
+
+MCP is optional and does not add a runtime dependency to the rendering engine. Install the current MCP server SDK and Zod v4:
+
+```bash
+npm install @modelcontextprotocol/server zod
+```
+
+Run the stdio server:
+
+```bash
+ENGINEX_VIEWS=./views \
+OPENAI_API_KEY=... \
+ENGINEX_AI_MODEL=your-approved-model \
+npm run mcp
+```
+
+Tools: `enginex_describe`, `enginex_validate_template`, `enginex_preview_template`, `enginex_explain_template`; when a provider is configured, generation/repair/optimization tools are added. Resources: `enginex://capabilities`, `enginex://language/grammar`, `enginex://docs/security`, and `enginex://schema/template-manifest`. Prompts include create, fix, and security review.
+
+The MCP adapter does not expose a file-write or publish tool. The stdio adapter is intended for local hosts. If you deploy MCP over HTTP, add authentication, authorization, TLS, origin/host validation, request size limits, rate limits, audit logging, and explicit tenant isolation. Never expose an unauthenticated template-preview service to the public internet.
+
+## Publication permissions
+
+File writes and publication are disabled by default. `publishTemplate` requires both `permissions.publish: true` and `permissions.writeFiles: true`, a host-provided `approvePublish` callback that returns literal `true`, a safe template validation result, an existing destination directory inside the canonical root, and a path that is not a symlink. Keep this in a trusted administrative process and review generated HTML before deployment.
+
+## Output context and active HTML
+
+Ordinary interpolation is intended for HTML text and quoted attribute values, but it is **not** a universal encoder for JavaScript, CSS, URL policy, HTML tag names, or attribute names. For quoted attributes, `htmlAttr(value)` returns branded HTML-escaped output and must be used as `{{{ htmlAttr(value) }}}` to avoid a second escaping pass, for example:
+
+```html
+<input value="{{{ htmlAttr(user.displayName) }}}">
+```
+
+For URL values, apply `safeUrl` and then output the result through normal escaped interpolation; URL allow-listing and HTML escaping solve different problems. Keep tag/attribute names static, avoid interpolating into `<script>` or `<style>`, and use `jsonScript()` for JSON data blocks. Static `<script>` tags and event-handler attributes are not sanitized. Security diagnostics are heuristic warnings, not an HTML sanitizer or proof of safety.
+
+Triple braces only accept engine-branded safe HTML from `engine.safeHtml()` or designated safe helpers. `safeHtml()` is a trust assertion, not a sanitizer: do not wrap untrusted HTML with it.
+
+## Migrating from EnginEx 6.x
+
+EnginEx 7.0.0 removes the arbitrary-JavaScript `<?njs ... ?>` renderer and the `engine-legacy.js` adapter. Passing `allowUnsafeCode: true` or calling `engine.unsafe()` now fails with `ERR_ENGINEX_UNSAFE_API`; no compatibility switch can re-enable execution.
+
+Replace historical blocks with the restricted expression language and explicitly registered helpers. For example, move business logic into a host-owned helper with a narrow input/output contract, register only the helper needed by the template, and render its result using ordinary escaped interpolation. Do not expose filesystem, process, environment, unrestricted network, or generic module-loading capabilities to template helpers.
+
+The parser still recognizes legacy block boundaries so that historical files fail with a clear `ERR_ENGINEX_UNSAFE_CODE_DISABLED` diagnostic rather than rendering JavaScript as markup. There is no automatic conversion for arbitrary JavaScript blocks because their side effects and access to process capabilities cannot be safely inferred.
+
+## Tests, evals, benchmarks
+
+```bash
+npm test                 # unit, security and provider-mock tests
+npm run check            # syntax + tests
+npm run evals            # deterministic generation-quality/security cases, no API call
+npm run bench:node       # EnginEx steady-state render benchmark
+npm run bench:compare    # EnginEx vs native PHP; Twig runs if installed
+```
+
+Benchmark output includes output checksums so you can verify that each implementation emits the same bytes for the shared fixture. Timing depends on machine, versions, runtime configuration, warmup, output and workload. The scripts do not assert that EnginEx is faster than PHP or Twig.
+
+## PHP comparison
+
+Native PHP templates can execute all PHP code and therefore require explicit context-appropriate escaping. Twig is a more direct comparison: a dedicated template language with automatic HTML escaping and layout inheritance. PHP's OPcache stores precompiled bytecode; use it in performance comparisons. Compare under equivalent output, escaping, cache warmup and concurrency conditions. See `docs/COMPARISON.md` and `bench/`.
+
+## Documentation and governance
+
+The [documentation index](docs/README.md) organizes technical references and project policies. Contributors should read [CONTRIBUTING.md](CONTRIBUTING.md), the [Contributor Covenant 3.0 Code of Conduct](CODE_OF_CONDUCT.md), and [GOVERNANCE.md](GOVERNANCE.md). [VERSIONING.md](VERSIONING.md) defines release conventions, while [docs/DOCUMENTATION_STANDARDS.md](docs/DOCUMENTATION_STANDARDS.md) defines Markdown and documentation quality expectations.
+
+## Security, licensing, and attribution
+
+EnginEx 7.0.0 is identified by its release manifest as a security-hardening candidate with remaining validation and independent-review gaps. Automated tests and CI do not constitute an independent security audit or production certification.
+
+Read [SECURITY.md](SECURITY.md) for private vulnerability reporting and [THREAT_MODEL.md](THREAT_MODEL.md) for assets, trust boundaries, threats, controls, and residual risks. Do not publish exploitable vulnerability details or credentials in public issues.
+
+Current original EnginEx materials controlled by the project maintainers are licensed under **GNU GPL-2.0-or-later**; see [LICENSE](LICENSE), [COPYRIGHT](COPYRIGHT), and [NOTICE.md](NOTICE.md). Previously published MIT copies retain the license permissions already granted for those copies. Third-party and file-specific licenses remain applicable.
+
+See [GOVERNANCE.md](GOVERNANCE.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [CONTRIBUTING.md](CONTRIBUTING.md), [VERSIONING.md](VERSIONING.md), [TRADEMARKS.md](TRADEMARKS.md), and [docs/README.md](docs/README.md).

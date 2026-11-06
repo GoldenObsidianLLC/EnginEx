@@ -1,0 +1,28 @@
+name: Bug report
+description: Report a reproducible EnginEx defect.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include credentials, private inputs, production data, or exploitable vulnerability details. Use SECURITY.md for private security reports."
+  - type: input
+    id: version
+    attributes:
+      label: EnginEx version
+      placeholder: "7.0.0"
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: "22.x, 24.x, or 26.x"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction and expected/actual behavior
+    validations:
+      required: true
